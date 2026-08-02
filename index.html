@@ -95,12 +95,13 @@
       </select>
     </div>
     <div class="row"><label>学名サイズ</label><input type="range" id="nameSize" min="30" max="120" value="72"><span class="val" id="nameSizeV"></span></div>
+    <div class="row"><label>字幅（細長さ）</label><input type="range" id="width" min="55" max="115" value="82"><span class="val" id="widthV"></span></div>
     <div class="row"><label>読みサイズ</label><input type="range" id="readSize" min="14" max="60" value="30"><span class="val" id="readSizeV"></span></div>
-    <div class="row"><label>縦位置</label><input type="range" id="posY" min="40" max="82" value="61"><span class="val" id="posYV"></span></div>
+    <div class="row"><label>縦位置</label><input type="range" id="posY" min="40" max="85" value="70"><span class="val" id="posYV"></span></div>
     <div class="row"><label>横位置</label><input type="range" id="posX" min="-15" max="15" value="0"><span class="val" id="posXV"></span></div>
-    <div class="row"><label>隠す高さ</label><input type="range" id="cover" min="0" max="22" value="11"><span class="val" id="coverV"></span></div>
     <div class="row"><label>罫線</label><input type="range" id="rule" min="0" max="2" value="1" step="1"><span class="val" id="ruleV"></span></div>
-    <div class="row"><label>インク色</label><input type="color" id="ink" value="#4a2e17"></div>
+    <div class="row"><label>インク色</label><input type="color" id="ink" value="#4a2e17"><button class="ghost" style="flex:0 0 auto;min-width:0;padding:8px 12px;font-size:13px" id="autoInk">自動</button></div>
+    <div class="row"><label>「Plant Name」を隠す</label><input type="range" id="cover" min="0" max="22" value="0"><span class="val" id="coverV"></span></div>
     <div class="row"><label>隠す色</label><input type="color" id="coverCol" value="#f7f5f0"><button class="ghost" style="flex:0 0 auto;min-width:0;padding:8px 12px;font-size:13px" id="autoCover">自動</button></div>
   </div>
 </details>
@@ -119,12 +120,12 @@ let img = null;                // HTMLImageElement of template
 const STORE = 'gardensPlantCard_v1';
 
 // ---- persisted settings ----
-const controls = ['name','reading','font','nameSize','readSize','posY','posX','cover','rule','ink','coverCol'];
+const controls = ['name','reading','font','nameSize','width','readSize','posY','posX','cover','rule','ink','coverCol'];
 function loadState(){
   try{
     const s = JSON.parse(localStorage.getItem(STORE)||'{}');
     controls.forEach(k=>{ if(s[k]!=null && $(k)) $(k).value = s[k]; });
-    if(s.template) setTemplate(s.template);
+    if(s.template) setTemplate(s.template, false);
   }catch(e){}
 }
 function saveState(){
@@ -138,33 +139,62 @@ function saveState(){
 }
 
 // ---- template handling ----
-function setTemplate(dataUrl){
+let _px = null;                 // cached pixel data of template
+function setTemplate(dataUrl, isNew){
   const im = new Image();
-  im.onload = ()=>{ im._src = dataUrl; img = im; $('empty').style.display='none';
-    cv.style.display='block'; autoCoverColor(); render(); };
+  im.onload = ()=>{ im._src = dataUrl; img = im; _px = null;
+    $('empty').style.display='none'; cv.style.display='block';
+    if(isNew){ autoInkColor(); autoCoverColor(); }   // match card colors automatically
+    render(); if(isNew) saveState(); };
   im.src = dataUrl;
 }
 $('pick').onclick = ()=> $('file').click();
 $('file').onchange = e=>{
   const f = e.target.files[0]; if(!f) return;
   const r = new FileReader();
-  r.onload = ()=>{ setTemplate(r.result); saveState(); };
+  r.onload = ()=>{ setTemplate(r.result, true); };
   r.readAsDataURL(f);
 };
 
-// sample background color from blank margins → fill "隠す色"
-function autoCoverColor(){
-  if(!img) return;
+// read the whole template into a pixel buffer (cached)
+function pixels(){
+  if(_px) return _px;
+  if(!img) return null;
   const t = document.createElement('canvas'); t.width=img.naturalWidth; t.height=img.naturalHeight;
   const tc = t.getContext('2d'); tc.drawImage(img,0,0);
+  try{ _px = tc.getImageData(0,0,img.naturalWidth,img.naturalHeight); }catch(_){ _px=null; }
+  return _px;
+}
+const hx = x => ('0'+Math.max(0,Math.min(255,Math.round(x))).toString(16)).slice(-2);
+
+// sample the card's ink color = average of the darkest sampled pixels
+function autoInkColor(){
+  const im = pixels(); if(!im) return;
+  const {data,width:W,height:H} = im;
+  const cols=60, rows=Math.round(60*H/W), list=[];
+  for(let gy=0; gy<rows; gy++) for(let gx=0; gx<cols; gx++){
+    const px=Math.floor((gx+0.5)/cols*W), py=Math.floor((gy+0.5)/rows*H);
+    const i=(py*W+px)*4;
+    list.push([data[i]+data[i+1]+data[i+2], data[i],data[i+1],data[i+2]]);
+  }
+  list.sort((a,b)=>a[0]-b[0]);
+  const top=list.slice(0,20); let r=0,g=0,b=0;
+  top.forEach(p=>{r+=p[1];g+=p[2];b+=p[3];});
+  const n=top.length; $('ink').value='#'+hx(r/n)+hx(g/n)+hx(b/n);
+}
+$('autoInk').onclick = ()=>{ autoInkColor(); render(); saveState(); };
+
+// sample background color from blank margins → "隠す色"
+function autoCoverColor(){
+  const im = pixels(); if(!im) return;
+  const {data,width:W,height:H} = im;
   const pts = [[0.14,0.5],[0.86,0.5],[0.5,0.82],[0.5,0.9],[0.14,0.35]];
   let r=0,g=0,b=0,n=0;
   for(const [px,py] of pts){
-    try{ const d = tc.getImageData(img.naturalWidth*px, img.naturalHeight*py,1,1).data;
-      r+=d[0];g+=d[1];b+=d[2];n++; }catch(_){}
+    const i=(Math.floor(H*py)*W+Math.floor(W*px))*4;
+    r+=data[i];g+=data[i+1];b+=data[i+2];n++;
   }
-  if(n){ const h=x=>('0'+Math.round(x/n).toString(16)).slice(-2);
-    $('coverCol').value = '#'+h(r)+h(g)+h(b); }
+  if(n) $('coverCol').value = '#'+hx(r/n)+hx(g/n)+hx(b/n);
 }
 $('autoCover').onclick = ()=>{ autoCoverColor(); render(); saveState(); };
 
@@ -192,12 +222,16 @@ function render(){
 
   ctx.textAlign='center'; ctx.fillStyle=ink;
 
-  // scientific name
+  // scientific name (with horizontal squeeze for a slender look)
   const nm = $('name').value.trim();
+  const wScale = parseFloat($('width').value)/100;
   if(nm){
     ctx.textBaseline='alphabetic';
     ctx.font = nameSize+"px "+font;
+    ctx.save();
+    ctx.translate(cx,0); ctx.scale(wScale,1); ctx.translate(-cx,0);
     ctx.fillText(nm, cx, yc);
+    ctx.restore();
   }
 
   // rule (diamond divider)
@@ -236,6 +270,7 @@ function bind(id){
 }
 function updateVals(){
   $('nameSizeV').textContent=$('nameSize').value;
+  $('widthV').textContent=$('width').value+'%';
   $('readSizeV').textContent=$('readSize').value;
   $('posYV').textContent=$('posY').value+'%';
   $('posXV').textContent=$('posX').value;
