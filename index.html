@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Plant Card">
+<meta name="theme-color" content="#4a2e17">
+<title>GARDENS Plant Card</title>
+<style>
+  :root{
+    --ink:#4a2e17; --bg:#f3efe6; --line:#d9cfbf;
+    --accent:#8a6d4f; --card:#ffffff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:#2c2016;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN",sans-serif;
+    -webkit-text-size-adjust:100%;}
+  body{padding:12px 12px calc(28px + env(safe-area-inset-bottom)); max-width:560px;margin:0 auto;}
+  h1{font-size:17px;margin:6px 2px 12px;font-weight:600;letter-spacing:.02em;}
+  h1 small{display:block;font-weight:400;color:#8a7c6a;font-size:12px;margin-top:2px;}
+
+  .stage{background:var(--card);border-radius:14px;overflow:hidden;
+    box-shadow:0 1px 4px rgba(0,0,0,.12);margin-bottom:14px;position:relative;}
+  #canvas{display:block;width:100%;height:auto;}
+  .empty{padding:48px 20px;text-align:center;color:#9a8b78;}
+  .empty svg{width:52px;height:52px;opacity:.5;margin-bottom:10px;}
+
+  .card{background:var(--card);border-radius:14px;padding:14px 14px 4px;
+    box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:14px;}
+  .field{margin-bottom:14px;}
+  .field:last-child{margin-bottom:8px;}
+  label{display:block;font-size:12px;color:#8a7c6a;margin-bottom:6px;font-weight:600;letter-spacing:.02em;}
+  input[type=text]{width:100%;font-size:17px;padding:11px 12px;border:1px solid var(--line);
+    border-radius:10px;background:#fcfbf9;color:#2c2016;font-family:inherit;}
+  input[type=text]:focus{outline:none;border-color:var(--accent);}
+
+  details{margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden;}
+  summary{list-style:none;cursor:pointer;padding:13px 14px;font-size:14px;font-weight:600;color:#5b4a37;}
+  summary::-webkit-details-marker{display:none;}
+  summary::after{content:"▸";float:right;color:#b8a58f;transition:transform .15s;}
+  details[open] summary::after{transform:rotate(90deg);}
+  .adj{padding:2px 14px 12px;}
+  .row{display:flex;align-items:center;gap:10px;margin:12px 0;}
+  .row label{flex:0 0 96px;margin:0;font-weight:500;color:#6b5a45;}
+  .row input[type=range]{flex:1;accent-color:var(--accent);}
+  .row select{flex:1;font-size:15px;padding:8px;border:1px solid var(--line);border-radius:8px;background:#fcfbf9;}
+  .row input[type=color]{width:42px;height:34px;border:1px solid var(--line);border-radius:8px;background:none;padding:2px;}
+  .val{flex:0 0 40px;text-align:right;font-variant-numeric:tabular-nums;color:#9a8b78;font-size:13px;}
+
+  .btns{display:flex;gap:10px;flex-wrap:wrap;}
+  button{flex:1;min-width:130px;font-family:inherit;font-size:16px;font-weight:600;
+    padding:14px;border-radius:12px;border:none;cursor:pointer;}
+  .primary{background:var(--ink);color:#fff;}
+  .primary:active{background:#3a2411;}
+  .ghost{background:#efe8dc;color:#5b4a37;}
+  .ghost:active{background:#e5dccc;}
+  .hint{font-size:12px;color:#9a8b78;margin:10px 2px 0;line-height:1.6;}
+  input[type=file]{display:none;}
+</style>
+</head>
+<body>
+<h1>GARDENS Plant Card<small>植物名を入れてJPEG保存</small></h1>
+
+<div class="stage" id="stage">
+  <canvas id="canvas"></canvas>
+  <div class="empty" id="empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+    <div>下の「テンプレート画像を選ぶ」から<br>GARDENSカード画像を選んでください</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="field">
+    <label>学名（大きく表示）</label>
+    <input type="text" id="name" placeholder="Ficus benghalensis" autocapitalize="words" autocomplete="off">
+  </div>
+  <div class="field">
+    <label>読み仮名（明朝体で表示）</label>
+    <input type="text" id="reading" placeholder="フィカス・ベンガレンシス" autocomplete="off">
+  </div>
+</div>
+
+<details>
+  <summary>位置・サイズを調整</summary>
+  <div class="adj">
+    <div class="row"><label>フォント</label>
+      <select id="font">
+        <option value="'Hoefler Text',serif">Hoefler Text（上品）</option>
+        <option value="Didot,'Bodoni 72',serif">Didot（細めエレガント）</option>
+        <option value="Georgia,serif">Georgia</option>
+        <option value="'Times New Roman',serif">Times</option>
+        <option value="'Snell Roundhand',cursive">筆記体</option>
+      </select>
+    </div>
+    <div class="row"><label>学名サイズ</label><input type="range" id="nameSize" min="30" max="120" value="72"><span class="val" id="nameSizeV"></span></div>
+    <div class="row"><label>読みサイズ</label><input type="range" id="readSize" min="14" max="60" value="30"><span class="val" id="readSizeV"></span></div>
+    <div class="row"><label>縦位置</label><input type="range" id="posY" min="40" max="82" value="61"><span class="val" id="posYV"></span></div>
+    <div class="row"><label>横位置</label><input type="range" id="posX" min="-15" max="15" value="0"><span class="val" id="posXV"></span></div>
+    <div class="row"><label>隠す高さ</label><input type="range" id="cover" min="0" max="22" value="11"><span class="val" id="coverV"></span></div>
+    <div class="row"><label>罫線</label><input type="range" id="rule" min="0" max="2" value="1" step="1"><span class="val" id="ruleV"></span></div>
+    <div class="row"><label>インク色</label><input type="color" id="ink" value="#4a2e17"></div>
+    <div class="row"><label>隠す色</label><input type="color" id="coverCol" value="#f7f5f0"><button class="ghost" style="flex:0 0 auto;min-width:0;padding:8px 12px;font-size:13px" id="autoCover">自動</button></div>
+  </div>
+</details>
+
+<div class="btns">
+  <button class="ghost" id="pick">テンプレート画像を選ぶ</button>
+  <button class="primary" id="save">JPEG保存</button>
+</div>
+<input type="file" id="file" accept="image/*">
+<div class="hint">初回だけテンプレート画像を選ぶと端末に保存され、次からはオフラインで使えます。保存後は共有シートの「画像を保存」でカメラロールに入ります。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const cv = $('canvas'), ctx = cv.getContext('2d');
+let img = null;                // HTMLImageElement of template
+const STORE = 'gardensPlantCard_v1';
+
+// ---- persisted settings ----
+const controls = ['name','reading','font','nameSize','readSize','posY','posX','cover','rule','ink','coverCol'];
+function loadState(){
+  try{
+    const s = JSON.parse(localStorage.getItem(STORE)||'{}');
+    controls.forEach(k=>{ if(s[k]!=null && $(k)) $(k).value = s[k]; });
+    if(s.template) setTemplate(s.template);
+  }catch(e){}
+}
+function saveState(){
+  const s = {};
+  controls.forEach(k=>{ s[k] = $(k).value; });
+  if(img && img._src) s.template = img._src;
+  try{ localStorage.setItem(STORE, JSON.stringify(s)); }
+  catch(e){ /* quota: keep template only */
+    try{ localStorage.setItem(STORE, JSON.stringify({template:s.template})); }catch(_){}
+  }
+}
+
+// ---- template handling ----
+function setTemplate(dataUrl){
+  const im = new Image();
+  im.onload = ()=>{ im._src = dataUrl; img = im; $('empty').style.display='none';
+    cv.style.display='block'; autoCoverColor(); render(); };
+  im.src = dataUrl;
+}
+$('pick').onclick = ()=> $('file').click();
+$('file').onchange = e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{ setTemplate(r.result); saveState(); };
+  r.readAsDataURL(f);
+};
+
+// sample background color from blank margins → fill "隠す色"
+function autoCoverColor(){
+  if(!img) return;
+  const t = document.createElement('canvas'); t.width=img.naturalWidth; t.height=img.naturalHeight;
+  const tc = t.getContext('2d'); tc.drawImage(img,0,0);
+  const pts = [[0.14,0.5],[0.86,0.5],[0.5,0.82],[0.5,0.9],[0.14,0.35]];
+  let r=0,g=0,b=0,n=0;
+  for(const [px,py] of pts){
+    try{ const d = tc.getImageData(img.naturalWidth*px, img.naturalHeight*py,1,1).data;
+      r+=d[0];g+=d[1];b+=d[2];n++; }catch(_){}
+  }
+  if(n){ const h=x=>('0'+Math.round(x/n).toString(16)).slice(-2);
+    $('coverCol').value = '#'+h(r)+h(g)+h(b); }
+}
+$('autoCover').onclick = ()=>{ autoCoverColor(); render(); saveState(); };
+
+// ---- render ----
+function render(){
+  if(!img) return;
+  const W = img.naturalWidth, H = img.naturalHeight;
+  cv.width = W; cv.height = H;
+  ctx.clearRect(0,0,W,H);
+  ctx.drawImage(img,0,0,W,H);
+
+  const cx = W*0.5 + W*(parseFloat($('posX').value)/100);
+  const yc = H*(parseFloat($('posY').value)/100);
+  const ink = $('ink').value;
+  const nameSize = W*(parseFloat($('nameSize').value)/1000);
+  const readSize = W*(parseFloat($('readSize').value)/1000);
+  const font = $('font').value;
+
+  // cover printed "Plant Name"
+  const coverH = H*(parseFloat($('cover').value)/100);
+  if(coverH>0){
+    ctx.fillStyle = $('coverCol').value;
+    ctx.fillRect(W*0.12, yc-coverH*0.62, W*0.76, coverH);
+  }
+
+  ctx.textAlign='center'; ctx.fillStyle=ink;
+
+  // scientific name
+  const nm = $('name').value.trim();
+  if(nm){
+    ctx.textBaseline='alphabetic';
+    ctx.font = nameSize+"px "+font;
+    ctx.fillText(nm, cx, yc);
+  }
+
+  // rule (diamond divider)
+  const ruleMode = parseInt($('rule').value,10);
+  const ruleY = yc + nameSize*0.55;
+  if(ruleMode>0){
+    const half = W* (ruleMode===2?0.40:0.34);
+    ctx.strokeStyle=ink; ctx.lineWidth=Math.max(1.2, W*0.0016);
+    const gap = W*0.02;
+    ctx.beginPath();
+    ctx.moveTo(cx-half, ruleY); ctx.lineTo(cx-gap, ruleY);
+    ctx.moveTo(cx+gap, ruleY);  ctx.lineTo(cx+half, ruleY);
+    ctx.stroke();
+    // center diamond
+    const d = W*0.011;
+    ctx.beginPath();
+    ctx.moveTo(cx, ruleY-d); ctx.lineTo(cx+d, ruleY);
+    ctx.lineTo(cx, ruleY+d); ctx.lineTo(cx-d, ruleY);
+    ctx.closePath(); ctx.fillStyle=ink; ctx.fill();
+  }
+
+  // reading (mincho)
+  const rd = $('reading').value.trim();
+  if(rd){
+    ctx.textBaseline='top';
+    ctx.font = readSize+"px 'Hiragino Mincho ProN','YuMincho',serif";
+    ctx.fillText(rd, cx, ruleY + (ruleMode>0?readSize*0.55:readSize*0.3));
+  }
+}
+
+// ---- live updates ----
+function bind(id){
+  const el=$(id);
+  const ev = (el.type==='range'||el.type==='color'||el.tagName==='SELECT')?'input':'input';
+  el.addEventListener(ev, ()=>{ updateVals(); render(); saveState(); });
+}
+function updateVals(){
+  $('nameSizeV').textContent=$('nameSize').value;
+  $('readSizeV').textContent=$('readSize').value;
+  $('posYV').textContent=$('posY').value+'%';
+  $('posXV').textContent=$('posX').value;
+  $('coverV').textContent=$('cover').value;
+  $('ruleV').textContent=['なし','標準','長め'][$('rule').value];
+}
+controls.forEach(bind);
+
+// ---- save as JPEG ----
+$('save').onclick = async ()=>{
+  if(!img){ alert('先にテンプレート画像を選んでください'); return; }
+  render();
+  const name = ($('name').value.trim()||'plant-card').replace(/[^\w\- ]+/g,'').trim()||'plant-card';
+  cv.toBlob(async blob=>{
+    const file = new File([blob], name+'.jpg', {type:'image/jpeg'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file]}); return; }catch(e){ if(e.name==='AbortError') return; }
+    }
+    // fallback: download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=name+'.jpg';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  }, 'image/jpeg', 0.95);
+};
+
+// prevent pinch zoom
+document.addEventListener('gesturestart', e=>e.preventDefault());
+
+loadState();
+updateVals();
+</script>
+</body>
+</html>
