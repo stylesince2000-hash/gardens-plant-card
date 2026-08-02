@@ -5,8 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Plant Card">
+<meta name="apple-mobile-web-app-title" content="サブスク">
 <meta name="theme-color" content="#4a2e17">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="favicon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <title>GARDENS Plant Card</title>
 <style>
   :root{
@@ -344,7 +347,7 @@ $('save').onclick = async ()=>{
 document.addEventListener('gesturestart', e=>e.preventDefault());
 
 // ---- auto-update (so pushes actually reach the phone) ----
-const APP_VERSION = "3";
+const APP_VERSION = "4";
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 fetch('version.json', {cache:'no-store'})
   .then(r=>r.json())
